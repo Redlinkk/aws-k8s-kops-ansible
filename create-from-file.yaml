@@ -1,0 +1,9 @@
+---
+#####################################
+# Setup Kubernetes Cluster From File
+#####################################
+
+- hosts: localhost
+  connection: local
+  roles:
+    - create-cluster-from-file

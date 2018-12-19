@@ -1,0 +1,92 @@
+---
+
+apiVersion: kops/v1alpha2
+kind: Cluster
+metadata:
+  name: {{ cluster_name }}
+spec:
+  api:
+    dns: {}
+  authorization:
+    rbac: {}
+  channel: stable
+  cloudProvider: aws
+  configBase: {{ state_store }}/{{ cluster_name }}
+  dnsZone: {{ dns_zone }}
+  etcdClusters:
+  - etcdMembers:
+{% for zone in master_zones_list %}
+    - encryptedVolume: true
+      instanceGroup: master-{{ zone }}
+      name: {{ zone[-1] }}
+{% endfor %}
+    name: main
+  - etcdMembers:
+{% for zone in master_zones_list %}
+    - encryptedVolume: true
+      instanceGroup: master-{{ zone }}
+      name: {{ zone[-1] }}
+{% endfor %}
+    name: events
+  iam:
+    allowContainerRegistry: {{ iam.allow_container_registry }}
+    legacy: {{ iam.legacy }}
+  kubernetesApiAccess:
+{% for cidr in kubernetesApiAccess %}
+  - {{ cidr }}
+{% endfor %}
+  kubernetesVersion: {{ kubernetes_version }} 
+  masterPublicName: api.{{ cluster_name }}
+  networkCIDR: {{ network_cidr }}
+  networking:
+    kubenet: {}
+  nonMasqueradeCIDR: 100.64.0.0/10
+  sshAccess:
+{% for cidr in sshAccess %}
+  - {{ cidr }}
+{% endfor %}
+  subnets:
+  - cidr: 172.16.32.0/19
+    name: eu-west-3b
+    type: Public
+    zone: eu-west-3b
+  topology:
+    dns:
+      type: Public
+    masters: {{ topology }}
+    nodes: {{ topology }}
+
+{% for ig in instancegroups %}
+---
+
+apiVersion: kops/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: {{ cluster_name }}
+  name: {{ ig.name }}
+spec:
+{% if ig.iam_profile is defined %}
+  iam:
+    profile: {{ ig.iam_profile }}
+{% endif %}
+  image: {{ base_image }}
+  machineType: {{ ig.size }}
+{% if ig.max_price is defined %}
+  maxPrice: "{{ ig.max_price }}"
+{% endif %}
+  maxSize: {{ ig.max }}
+  minSize: {{ ig.min }}
+  nodeLabels:
+{% for key, value in ig.labels.iteritems() %}
+    {{ key }}: "{{ value }}"
+{% endfor %}
+    kops.k8s.io/instancegroup: {{ ig.name }}
+  role: {{ ig.type }}
+  rootVolumeSize: {{ ig.volume_size }}
+  subnets:
+{% for subnet in ig.subnets %}
+  - {{ subnet }}
+{% endfor %}
+
+{% endfor %}

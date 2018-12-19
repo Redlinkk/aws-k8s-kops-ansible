@@ -13,6 +13,8 @@ aws_zones: us-east-1a,us-east-1b,us-east-1c
 # Useful especially when you want 1 master in single zone but workers in several zones.
 # When not defined, aws_zones will be sued instead
 master_zones: us-east-1a
+master_zones_list:
+  - us-east-1a
 
 
 ## Network
@@ -24,7 +26,7 @@ topology: public
 
 
 ## EC2 host sizing
-base_image: kope.io/k8s-1.11-debian-stretch-amd64-hvm-ebs-2018-08-17
+base_image: kope.io/k8s-1.10-debian-stretch-amd64-hvm-ebs-2018-08-17
 
 # Master configuration
 master_size: t2.medium
@@ -60,10 +62,43 @@ tag_environment: Development
 
 
 ## Cluster spec
-kubernetes_version: 1.11.3
+kubernetes_version: 1.10.11
 
 
 # IAM
 iam:
   allow_container_registry: true
   legacy: false
+
+# Security
+kubernetesApiAccess:
+  - 0.0.0.0/0
+sshAccess:
+  - 0.0.0.0/0
+
+# Instance groups
+instancegroups:
+  - name: master-us-east-1a
+    type: Master
+    size: t2.medium
+    min: 1
+    max: 1
+    #max_price: 0.2
+    labels: {}
+    volume_size: 50
+    #iam_profile: arn:aws:iam::1234567890108:instance-profile/kops-custom-master-role
+    subnets:
+      - us-east-1a
+  - name: nodes
+    type: Node
+    size: t
+    min: 2
+    max: 2
+    #max_price: 0.2
+    labels: {}
+    volume_size: 50
+    #iam_profile: arn:aws:iam::1234567890108:instance-profile/kops-custom-node-role
+    subnets:
+      - us-east-1a
+
+instance_count: 3

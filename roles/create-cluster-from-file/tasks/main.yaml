@@ -1,0 +1,54 @@
+---
+
+####################
+# Create Kubernetes cluster using Kops
+####################
+
+- name: Configure topology variable
+  set_fact:
+    topology: "public"
+  when: topology != "private"
+
+- name: Configure bastion variables
+  set_fact:
+    bastion: "false"
+    public_ip: "true"
+
+- name: Configure bastion variables
+  set_fact:
+    bastion: "true"
+    public_ip: "false"
+  when: topology == "private"
+
+- name: Test if cluster exists
+  shell: kops validate cluster --name={{ cluster_name }}
+  register: cluster_validation
+  changed_when: False
+  failed_when: False
+
+- name: Create the full config file
+  template:
+    src: k8s_kops.yaml.j2
+    dest: /tmp/{{ cluster_name }}-full-cluster.yml
+
+- name: Configure the cluster from config file
+  shell: kops create -f /tmp/{{ cluster_name }}-full-cluster.yml
+  when: cluster_validation.rc != 0
+
+- name: Add admin ssh key
+  shell: kops create secret --name {{ cluster_name }} sshpublickey admin -i {{ ssh_public_key }}
+  when: cluster_validation.rc != 0
+
+- name: Configure the cluster from config file
+  shell: kops replace -f /tmp/{{ cluster_name }}-full-cluster.yml
+  when: cluster_validation.rc == 0
+
+- name: Create/Update the physical cluster
+  shell: kops update cluster {{ cluster_name }} --yes --state {{ state_store }} --lifecycle-overrides IAMRole=Ignore,IAMRolePolicy=Ignore,IAMInstanceProfileRole=Ignore
+
+- name: Verify that all Kubernetes nodes are ready
+  shell: kubectl get nodes | grep "Ready" | wc -l
+  register: cmd_result
+  until: cmd_result.stdout.find('{{ instance_count }}') != -1
+  retries: 20
+  delay: 60
